@@ -40,6 +40,7 @@ class RoleController extends Controller
         $role = Role::create([
             'name' => $request->name,
             'guard_name' => $request->guard_name,
+            'display_name' => $request->display_name,
         ]);
 
         if ($request->has('permissions')) {
@@ -76,6 +77,13 @@ class RoleController extends Controller
 
         if ($request->has('name')) {
             $role->name = $request->name;
+        }
+
+        if ($request->has('display_name')) {
+            $role->display_name = $request->display_name;
+        }
+
+        if ($request->has('name') || $request->has('display_name')) {
             $role->save();
         }
 

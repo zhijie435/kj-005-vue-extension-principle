@@ -73,6 +73,9 @@
       width="700px"
       append-to-body
       :close-on-click-modal="false"
+      :close-on-press-escape="!submitLoading"
+      :show-close="!submitLoading"
+      :before-close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
         <el-row :gutter="20">
@@ -101,6 +104,7 @@
         <el-form-item label="权限分配" prop="permissions">
           <el-tree
             ref="permTree"
+            :key="formData.guard_name"
             :data="permissionTree"
             show-checkbox
             node-key="name"
@@ -111,7 +115,7 @@
         </el-form-item>
       </el-form>
       <template slot="footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="dialogVisible = false" :disabled="submitLoading">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
@@ -193,9 +197,10 @@ export default {
     guardLabels: () => guardLabels,
     guardTagTypes: () => guardTagTypes,
     permissionTree() {
+      const guardName = this.formData.guard_name || this.currentGuard
       const grouped = {}
       this.allPermissions.forEach(perm => {
-        if (perm.guard_name !== this.currentGuard && perm.guard_name !== 'web') return
+        if (perm.guard_name !== guardName) return
         const parts = perm.name.split('.')
         const group = parts[0] || 'other'
         if (!grouped[group]) grouped[group] = []
@@ -265,7 +270,6 @@ export default {
       }
     },
     handleGuardChange() {
-      this.formData.guard_name = this.currentGuard
       this.fetchData()
     },
     handleAdd() {
@@ -283,7 +287,6 @@ export default {
     },
     handleEdit(row) {
       this.isEdit = true
-      this.currentGuard = row.guard_name
       this.formData = {
         id: row.id,
         name: row.name,
@@ -299,6 +302,10 @@ export default {
     handleViewPermissions(row) {
       this.currentRole = row
       this.permDrawerVisible = true
+    },
+    handleDialogClose(done) {
+      if (this.submitLoading) return
+      done()
     },
     async handleDelete(row) {
       if (this.isSystemRole(row)) {
