@@ -95,6 +95,7 @@
       width="640px"
       append-to-body
       :close-on-click-modal="false"
+      :before-close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
         <el-row :gutter="20">
@@ -141,7 +142,7 @@
         </el-row>
       </el-form>
       <template slot="footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="closeDialog" :disabled="submitLoading">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
@@ -151,29 +152,17 @@
 <script>
 import { getUsers, createUser, updateUser, deleteUser } from '@/api/user'
 import { getRoles } from '@/api/role'
-
-const guardLabels = {
-  platform: '平台端',
-  supplier: '供应商端',
-  distributor: '经销商端'
-}
-
-const guardTagTypes = {
-  platform: '',
-  supplier: 'success',
-  distributor: 'warning'
-}
+import asyncTask from '@/mixins/asyncTask'
+import permissionGuard from '@/mixins/permissionGuard'
+import formState from '@/mixins/formState'
 
 export default {
   name: 'Users',
+  mixins: [asyncTask, permissionGuard, formState],
   data() {
     return {
-      loading: false,
-      submitLoading: false,
       tableData: [],
       total: 0,
-      dialogVisible: false,
-      isEdit: false,
       roleOptions: [],
       rowToggling: {},
       queryParams: {
@@ -203,8 +192,6 @@ export default {
     }
   },
   computed: {
-    guardLabels: () => guardLabels,
-    guardTagTypes: () => guardTagTypes,
     filteredRoleOptions() {
       return this.roleOptions.filter(r => r.guard_name === this.formData.guard_name)
     }
@@ -215,30 +202,22 @@ export default {
   },
   methods: {
     async fetchRoles() {
-      try {
-        const res = await getRoles()
-        this.roleOptions = res.data?.roles || res.data || []
-      } catch (e) {
-        console.error(e)
-      }
+      await this.safeCall(() => getRoles(), {
+        onSuccess: res => {
+          this.roleOptions = res.data?.roles || res.data || []
+        },
+        silent: true
+      })
     },
     async fetchData() {
-      this.loading = true
-      try {
-        const params = { ...this.queryParams }
-        Object.keys(params).forEach(key => {
-          if (params[key] === '' || params[key] === null || params[key] === undefined) {
-            delete params[key]
-          }
-        })
-        const res = await getUsers(params)
-        this.tableData = res.data?.list || []
-        this.total = res.data?.total || 0
-      } catch (e) {
-        console.error(e)
-      } finally {
-        this.loading = false
-      }
+      const params = this.cleanParams(this.queryParams)
+      await this.withLoading(() => getUsers(params), {
+        onSuccess: res => {
+          this.tableData = res.data?.list || []
+          this.total = res.data?.total || 0
+        },
+        silent: true
+      })
     },
     handleSearch() {
       this.queryParams.page = 1
@@ -249,22 +228,23 @@ export default {
       this.fetchData()
     },
     handleAdd() {
-      this.isEdit = false
+      if (!this.$checkPermissionOrFail('user.create')) return
+      this.openCreateForm()
       this.formData = { id: null, name: '', email: '', password: '', guard_name: 'platform', roles: [], is_active: true }
-      this.dialogVisible = true
     },
     handleEdit(row) {
-      this.isEdit = true
-      this.formData = {
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        password: '',
-        guard_name: row.guard_name || 'platform',
-        roles: (row.roles || []).map(r => r.name),
-        is_active: row.is_active
-      }
-      this.dialogVisible = true
+      if (!this.$checkPermissionOrFail('user.update')) return
+      this.openEditForm(row, () => {
+        this.formData = {
+          id: row.id,
+          name: row.name,
+          email: row.email,
+          password: '',
+          guard_name: row.guard_name || 'platform',
+          roles: (row.roles || []).map(r => r.name),
+          is_active: row.is_active
+        }
+      })
     },
     handleFormGuardChange() {
       this.formData.roles = []
@@ -276,54 +256,36 @@ export default {
         await updateUser(row.id, { is_active: row.is_active })
         this.$message.success(row.is_active ? '已启用' : '已禁用')
       } catch (e) {
-        const newValue = !row.is_active
-        this.$set(this.rowToggling, row.id, 'rollback')
-        row.is_active = newValue
-        console.error(e)
+        row.is_active = !row.is_active
+        const msg = e.response?.data?.message || e.message || '操作失败'
+        this.$message.error(msg)
       } finally {
         this.$nextTick(() => {
           this.$delete(this.rowToggling, row.id)
         })
       }
     },
-    async handleDelete(row) {
-      this.$confirm(`确定要删除用户"${row.name}"吗？`, '删除确认', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          await deleteUser(row.id)
-          this.$message.success('删除成功')
-          this.fetchData()
-        } catch (e) {
-          console.error(e)
-        }
-      }).catch(() => {})
-    },
-    async handleSubmit() {
-      this.$refs.formRef.validate(async valid => {
-        if (!valid) return
-        this.submitLoading = true
-        try {
-          const data = { ...this.formData }
-          if (this.isEdit && !data.password) delete data.password
-
-          if (this.isEdit) {
-            await updateUser(this.formData.id, data)
-            this.$message.success('更新成功')
-          } else {
-            await createUser(data)
-            this.$message.success('创建成功')
-          }
-          this.dialogVisible = false
-          this.fetchData()
-        } catch (e) {
-          console.error(e)
-        } finally {
-          this.submitLoading = false
-        }
+    handleDelete(row) {
+      this.confirmAndDelete({
+        message: `确定要删除用户"${row.name}"吗？`,
+        apiCall: () => deleteUser(row.id),
+        onSuccess: () => this.fetchData()
       })
+    },
+    handleSubmit() {
+      this.submitForm(
+        this.isEdit
+          ? () => {
+              const data = { ...this.formData }
+              if (!data.password) delete data.password
+              return updateUser(this.formData.id, data)
+            }
+          : () => createUser(this.formData),
+        {
+          formRef: 'formRef',
+          onSuccess: () => this.fetchData()
+        }
+      )
     }
   }
 }

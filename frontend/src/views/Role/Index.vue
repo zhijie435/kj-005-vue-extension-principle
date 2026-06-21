@@ -114,7 +114,7 @@
         </el-form-item>
       </el-form>
       <template slot="footer">
-        <el-button @click="dialogVisible = false" :disabled="submitLoading">取消</el-button>
+        <el-button @click="closeDialog" :disabled="submitLoading">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
@@ -148,33 +148,19 @@
 
 <script>
 import { getRoles, createRole, updateRole, deleteRole, getPermissions } from '@/api/role'
-
-const systemRoles = ['platform', 'supplier', 'distributor', 'platform-admin', 'supplier-admin', 'distributor-admin']
-
-const guardLabels = {
-  platform: '平台端',
-  supplier: '供应商端',
-  distributor: '经销商端'
-}
-
-const guardTagTypes = {
-  platform: '',
-  supplier: 'success',
-  distributor: 'warning'
-}
+import asyncTask from '@/mixins/asyncTask'
+import permissionGuard from '@/mixins/permissionGuard'
+import formState from '@/mixins/formState'
 
 export default {
   name: 'RoleManagement',
+  mixins: [asyncTask, permissionGuard, formState],
   data() {
     return {
-      loading: false,
-      submitLoading: false,
       tableData: [],
       allPermissions: [],
       currentGuard: 'platform',
-      dialogVisible: false,
       permDrawerVisible: false,
-      isEdit: false,
       currentRole: null,
       dialogTreeKey: 0,
       formData: {
@@ -194,8 +180,6 @@ export default {
     }
   },
   computed: {
-    guardLabels: () => guardLabels,
-    guardTagTypes: () => guardTagTypes,
     permissionTree() {
       const guardName = this.formData.guard_name || this.currentGuard
       const grouped = {}
@@ -233,47 +217,28 @@ export default {
     this.fetchPermissions()
   },
   methods: {
-    getGroupLabel(group) {
-      const labels = {
-        role: '角色管理',
-        user: '用户管理',
-        order: '订单管理',
-        product: '商品管理',
-        inventory: '库存管理',
-        refund: '退款管理',
-        coupon: '优惠券管理',
-        dashboard: '数据概览',
-        system: '系统设置'
-      }
-      return labels[group] || group
-    },
-    isSystemRole(row) {
-      return systemRoles.includes(row.name)
-    },
     async fetchData() {
-      this.loading = true
-      try {
-        const res = await getRoles({ guard_name: this.currentGuard })
-        this.tableData = res.data?.roles || res.data || []
-      } catch (e) {
-        console.error(e)
-      } finally {
-        this.loading = false
-      }
+      await this.withLoading(() => getRoles({ guard_name: this.currentGuard }), {
+        onSuccess: res => {
+          this.tableData = res.data?.roles || res.data || []
+        },
+        silent: true
+      })
     },
     async fetchPermissions() {
-      try {
-        const res = await getPermissions()
-        this.allPermissions = res.data?.permissions || res.data || []
-      } catch (e) {
-        console.error(e)
-      }
+      await this.safeCall(() => getPermissions(), {
+        onSuccess: res => {
+          this.allPermissions = res.data?.permissions || res.data || []
+        },
+        silent: true
+      })
     },
     handleGuardChange() {
       this.fetchData()
     },
     handleAdd() {
-      this.isEdit = false
+      if (!this.$checkPermissionOrFail('role.create')) return
+      this.openCreateForm({ guard_name: this.currentGuard })
       this.formData = {
         name: '',
         display_name: '',
@@ -281,7 +246,6 @@ export default {
         permissions: []
       }
       this.dialogTreeKey++
-      this.dialogVisible = true
       this.$nextTick(() => {
         this.$nextTick(() => {
           this.$refs.permTree?.setCheckedKeys([])
@@ -289,16 +253,17 @@ export default {
       })
     },
     handleEdit(row) {
-      this.isEdit = true
-      this.formData = {
-        id: row.id,
-        name: row.name,
-        display_name: row.display_name || row.name,
-        guard_name: row.guard_name,
-        permissions: (row.permissions || []).map(p => p.name)
-      }
+      if (!this.$checkPermissionOrFail('role.update')) return
+      this.openEditForm(row, () => {
+        this.formData = {
+          id: row.id,
+          name: row.name,
+          display_name: row.display_name || row.name,
+          guard_name: row.guard_name,
+          permissions: (row.permissions || []).map(p => p.name)
+        }
+      })
       this.dialogTreeKey++
-      this.dialogVisible = true
       this.$nextTick(() => {
         this.$nextTick(() => {
           this.$refs.permTree?.setCheckedKeys(this.formData.permissions)
@@ -309,56 +274,28 @@ export default {
       this.currentRole = row
       this.permDrawerVisible = true
     },
-    handleDialogClose(done) {
-      if (this.submitLoading) return
-      done()
-    },
-    async handleDelete(row) {
+    handleDelete(row) {
       if (this.isSystemRole(row)) {
         this.$message.warning('系统角色不能删除')
         return
       }
-      this.$confirm(`确定要删除角色"${row.display_name || row.name}"吗？`, '删除确认', {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          await deleteRole(row.id)
-          this.$message.success('删除成功')
-          this.fetchData()
-        } catch (e) {
-          console.error(e)
-        }
-      }).catch(() => {})
-    },
-    async handleSubmit() {
-      this.$refs.formRef.validate(async valid => {
-        if (!valid) return
-
-        const checkedKeys = this.$refs.permTree?.getCheckedKeys() || []
-        this.submitLoading = true
-        try {
-          const data = {
-            ...this.formData,
-            permissions: checkedKeys
-          }
-
-          if (this.isEdit) {
-            await updateRole(this.formData.id, data)
-            this.$message.success('更新成功')
-          } else {
-            await createRole(data)
-            this.$message.success('创建成功')
-          }
-          this.dialogVisible = false
-          this.fetchData()
-        } catch (e) {
-          console.error(e)
-        } finally {
-          this.submitLoading = false
-        }
+      this.confirmAndDelete({
+        message: `确定要删除角色"${row.display_name || row.name}"吗？`,
+        apiCall: () => deleteRole(row.id),
+        onSuccess: () => this.fetchData()
       })
+    },
+    handleSubmit() {
+      const checkedKeys = this.$refs.permTree?.getCheckedKeys() || []
+      this.submitForm(
+        this.isEdit
+          ? () => updateRole(this.formData.id, { ...this.formData, permissions: checkedKeys })
+          : () => createRole({ ...this.formData, permissions: checkedKeys }),
+        {
+          formRef: 'formRef',
+          onSuccess: () => this.fetchData()
+        }
+      )
     }
   }
 }

@@ -4,6 +4,16 @@ import { login, logout, getUserInfo } from '@/api/auth'
 
 Vue.use(Vuex)
 
+const AUTH_KEYS = ['token', 'userInfo', 'roles', 'permissions']
+
+function clearAuthStorage() {
+  AUTH_KEYS.forEach(key => localStorage.removeItem(key))
+}
+
+function setStorage(key, value) {
+  localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : value)
+}
+
 export default new Vuex.Store({
   state: {
     token: localStorage.getItem('token') || '',
@@ -15,6 +25,10 @@ export default new Vuex.Store({
     isLogin: state => !!state.token,
     userInfo: state => state.userInfo,
     roles: state => state.roles,
+    currentGuard: state => {
+      if (!state.userInfo) return null
+      return state.userInfo.guard_name || 'platform'
+    },
     permissions: state => {
       const perms = new Set()
       state.permissions.forEach(p => perms.add(p.name || p))
@@ -25,37 +39,48 @@ export default new Vuex.Store({
       })
       return Array.from(perms)
     },
-    currentGuard: state => {
-      if (!state.userInfo) return null
-      return state.userInfo.guard_name || 'platform'
+    guardPermissions: (state, getters) => {
+      const guard = getters.currentGuard
+      if (!guard) return []
+      return getters.permissions.filter(p => {
+        const parts = p.split('.')
+        if (parts.length >= 2) {
+          return true
+        }
+        return false
+      })
+    },
+    hasPermission: (state, getters) => perm => {
+      return getters.permissions.includes(perm) || getters.permissions.includes('*')
+    },
+    hasAnyPermission: (state, getters) => permList => {
+      if (!Array.isArray(permList)) return false
+      return permList.some(p => getters.permissions.includes(p) || getters.permissions.includes('*'))
     }
   },
   mutations: {
     SET_TOKEN(state, token) {
       state.token = token
-      localStorage.setItem('token', token)
+      setStorage('token', token)
     },
     SET_USER_INFO(state, userInfo) {
       state.userInfo = userInfo
-      localStorage.setItem('userInfo', JSON.stringify(userInfo))
+      setStorage('userInfo', userInfo)
     },
     SET_ROLES(state, roles) {
       state.roles = roles
-      localStorage.setItem('roles', JSON.stringify(roles))
+      setStorage('roles', roles)
     },
     SET_PERMISSIONS(state, permissions) {
       state.permissions = permissions
-      localStorage.setItem('permissions', JSON.stringify(permissions))
+      setStorage('permissions', permissions)
     },
     CLEAR_AUTH(state) {
       state.token = ''
       state.userInfo = null
       state.roles = []
       state.permissions = []
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-      localStorage.removeItem('roles')
-      localStorage.removeItem('permissions')
+      clearAuthStorage()
     }
   },
   actions: {
@@ -71,7 +96,7 @@ export default new Vuex.Store({
       try {
         await logout()
       } catch (e) {
-        console.error('Logout error:', e)
+        // ignore
       }
       commit('CLEAR_AUTH')
     },

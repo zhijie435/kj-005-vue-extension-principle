@@ -34,6 +34,12 @@ const routes = [
     meta: { title: '用户管理', requiresAuth: true, permission: 'user.view' }
   },
   {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/NotFound/index.vue'),
+    meta: { title: '无权限' }
+  },
+  {
     path: '*',
     name: 'NotFound',
     component: () => import('@/views/NotFound/index.vue'),
@@ -50,19 +56,18 @@ const router = new VueRouter({
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 电商订单库存后台` : '电商订单库存后台'
 
-  const token = localStorage.getItem('token')
-
-  if (to.meta.requiresAuth && !token) {
-    next({ path: '/login', query: { redirect: to.fullPath } })
-    return
-  }
-
-  if (to.meta.permission && token) {
-    const permissions = store.getters.permissions
-    const hasPermission = permissions.includes(to.meta.permission) || permissions.includes('*')
-    if (!hasPermission) {
-      next({ path: '/404' })
+  if (to.meta.requiresAuth) {
+    if (!store.getters.isLogin) {
+      next({ path: '/login', query: { redirect: to.fullPath } })
       return
+    }
+
+    if (to.meta.permission) {
+      const hasPermission = store.getters.hasPermission(to.meta.permission)
+      if (!hasPermission) {
+        next({ path: '/403' })
+        return
+      }
     }
   }
 
