@@ -16,10 +16,17 @@ class AppServiceProvider extends ServiceProvider
     {
         $adminViews = resource_path('views/vendor/admin');
         $supplierViews = resource_path('views/vendor/supplier');
+        $distributorViews = resource_path('views/vendor/distributor');
 
         View::addNamespace('admin', $adminViews);
 
         View::addNamespace('supplier', [
+            $supplierViews,
+            $adminViews,
+        ]);
+
+        View::addNamespace('distributor', [
+            $distributorViews,
             $supplierViews,
             $adminViews,
         ]);

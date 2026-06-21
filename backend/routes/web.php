@@ -8,6 +8,10 @@ use App\Http\Controllers\Supplier\OrderController as SupplierOrderController;
 use App\Http\Controllers\Supplier\ProductController as SupplierProductController;
 use App\Http\Controllers\Supplier\ReturnController as SupplierReturnController;
 use App\Http\Controllers\Supplier\ShipmentController as SupplierShipmentController;
+use App\Http\Controllers\Distributor\OrderController as DistributorOrderController;
+use App\Http\Controllers\Distributor\ProductController as DistributorProductController;
+use App\Http\Controllers\Distributor\ReturnController as DistributorReturnController;
+use App\Http\Controllers\Distributor\ShipmentController as DistributorShipmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -48,4 +52,19 @@ Route::prefix('supplier')->name('supplier.')->group(function () {
     Route::get('/returns', [SupplierReturnController::class, 'index'])->name('returns.index');
     Route::get('/returns/{id}', [SupplierReturnController::class, 'show'])->name('returns.show');
     Route::get('/returns/{id}/edit', [SupplierReturnController::class, 'edit'])->name('returns.edit');
+});
+
+Route::prefix('distributor')->name('distributor.')->group(function () {
+    Route::get('/products', [DistributorProductController::class, 'index'])->name('products.index');
+    Route::get('/products/{id}', [DistributorProductController::class, 'show'])->name('products.show');
+
+    Route::get('/orders', [DistributorOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/create', [DistributorOrderController::class, 'create'])->name('orders.create');
+    Route::get('/orders/{id}', [DistributorOrderController::class, 'show'])->name('orders.show');
+
+    Route::get('/shipments', [DistributorShipmentController::class, 'index'])->name('shipments.index');
+    Route::get('/shipments/{id}', [DistributorShipmentController::class, 'show'])->name('shipments.show');
+
+    Route::get('/returns', [DistributorReturnController::class, 'index'])->name('returns.index');
+    Route::get('/returns/{id}', [DistributorReturnController::class, 'show'])->name('returns.show');
 });
