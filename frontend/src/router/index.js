@@ -23,7 +23,7 @@ const routes = [
   {
     path: '/roles',
     name: 'RoleManagement',
-    component: () => import('@/views/role/Index.vue'),
+    component: () => import('@/views/Role/Index.vue'),
     meta: { title: '角色管理', requiresAuth: true, permission: 'role.view' }
   },
   {
@@ -42,7 +42,7 @@ const routes = [
 
 const router = new VueRouter({
   mode: 'history',
-  base: process.env.VITE_APP_BASE_URL || '/',
+  base: import.meta.env.VITE_APP_BASE_URL || '/',
   routes
 })
 

@@ -35,7 +35,7 @@
         </el-table-column>
         <el-table-column label="权限数" width="100" align="center">
           <template slot-scope="scope">
-            <el-tag size="mini">{{ scope.row.permissions?.length || 0 }}</el-tag>
+            <el-tag size="mini">{{ (scope.row.permissions || []).length || 0 }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="权限概览" min-width="300">
@@ -104,11 +104,10 @@
         <el-form-item label="权限分配" prop="permissions">
           <el-tree
             ref="permTree"
-            :key="formData.guard_name"
+            :key="dialogTreeKey"
             :data="permissionTree"
             show-checkbox
             node-key="name"
-            :default-checked-keys="formData.permissions"
             :props="{ label: 'label', children: 'children' }"
             style="max-height: 300px; overflow-y: auto; border: 1px solid #dcdfe6; border-radius: 4px; padding: 8px"
           />
@@ -122,7 +121,7 @@
 
     <el-drawer
       :visible.sync="permDrawerVisible"
-      :title="权限详情 - ' + (currentRole?.display_name || currentRole?.name || '')"
+      :title="'权限详情 - ' + ((currentRole && (currentRole.display_name || currentRole.name)) || '')"
       size="500px"
       append-to-body
     >
@@ -177,6 +176,7 @@ export default {
       permDrawerVisible: false,
       isEdit: false,
       currentRole: null,
+      dialogTreeKey: 0,
       formData: {
         name: '',
         display_name: '',
@@ -280,9 +280,12 @@ export default {
         guard_name: this.currentGuard,
         permissions: []
       }
+      this.dialogTreeKey++
       this.dialogVisible = true
       this.$nextTick(() => {
-        this.$refs.permTree?.setCheckedKeys([])
+        this.$nextTick(() => {
+          this.$refs.permTree?.setCheckedKeys([])
+        })
       })
     },
     handleEdit(row) {
@@ -294,9 +297,12 @@ export default {
         guard_name: row.guard_name,
         permissions: (row.permissions || []).map(p => p.name)
       }
+      this.dialogTreeKey++
       this.dialogVisible = true
       this.$nextTick(() => {
-        this.$refs.permTree?.setCheckedKeys(this.formData.permissions)
+        this.$nextTick(() => {
+          this.$refs.permTree?.setCheckedKeys(this.formData.permissions)
+        })
       })
     },
     handleViewPermissions(row) {

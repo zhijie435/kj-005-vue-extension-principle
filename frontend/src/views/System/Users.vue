@@ -63,7 +63,7 @@
         </el-table-column>
         <el-table-column label="状态" width="80" align="center">
           <template slot-scope="scope">
-            <el-switch v-model="scope.row.is_active" @change="handleToggleActive(scope.row)" />
+            <el-switch v-model="scope.row.is_active" :disabled="rowToggling[scope.row.id]" @change="handleToggleActive(scope.row)" />
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="160" />
@@ -175,6 +175,7 @@ export default {
       dialogVisible: false,
       isEdit: false,
       roleOptions: [],
+      rowToggling: {},
       queryParams: {
         page: 1,
         per_page: 15,
@@ -269,12 +270,20 @@ export default {
       this.formData.roles = []
     },
     async handleToggleActive(row) {
+      if (this.rowToggling[row.id]) return
+      this.$set(this.rowToggling, row.id, true)
       try {
         await updateUser(row.id, { is_active: row.is_active })
         this.$message.success(row.is_active ? '已启用' : '已禁用')
       } catch (e) {
-        row.is_active = !row.is_active
+        const newValue = !row.is_active
+        this.$set(this.rowToggling, row.id, 'rollback')
+        row.is_active = newValue
         console.error(e)
+      } finally {
+        this.$nextTick(() => {
+          this.$delete(this.rowToggling, row.id)
+        })
       }
     },
     async handleDelete(row) {
