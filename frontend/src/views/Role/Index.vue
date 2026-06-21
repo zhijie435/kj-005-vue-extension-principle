@@ -11,7 +11,7 @@
           <el-option label="供应商端" value="supplier" />
           <el-option label="经销商端" value="distributor" />
         </el-select>
-        <el-button type="primary" @click="handleAdd">
+        <el-button type="primary" @click="handleAdd" v-permission="'role.create'">
           <i class="el-icon-plus"></i> 新建角色
         </el-button>
       </div>
@@ -59,9 +59,9 @@
         <el-table-column prop="created_at" label="创建时间" width="160" />
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template slot-scope="scope">
-            <el-button type="primary" link size="mini" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button type="primary" link size="mini" @click="handleViewPermissions(scope.row)">权限</el-button>
-            <el-button type="danger" link size="mini" @click="handleDelete(scope.row)" :disabled="isSystemRole(scope.row)">删除</el-button>
+            <el-button type="primary" link size="mini" @click="handleEdit(scope.row)" v-permission="'role.update'">编辑</el-button>
+            <el-button type="primary" link size="mini" @click="handleViewPermissions(scope.row)" v-permission="'role.view'">权限</el-button>
+            <el-button type="danger" link size="mini" @click="handleDelete(scope.row)" :disabled="isSystemRole(scope.row)" v-permission="'role.delete'">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

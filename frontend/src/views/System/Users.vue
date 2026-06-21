@@ -6,7 +6,7 @@
         <p class="page-desc">管理系统用户和角色分配</p>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="handleAdd">
+        <el-button type="primary" @click="handleAdd" v-permission="'user.create'">
           <i class="el-icon-plus"></i> 新建用户
         </el-button>
       </div>
@@ -69,8 +69,8 @@
         <el-table-column prop="created_at" label="创建时间" width="160" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template slot-scope="scope">
-            <el-button type="primary" link size="mini" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button type="danger" link size="mini" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button type="primary" link size="mini" @click="handleEdit(scope.row)" v-permission="'user.update'">编辑</el-button>
+            <el-button type="danger" link size="mini" @click="handleDelete(scope.row)" v-permission="'user.delete'">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

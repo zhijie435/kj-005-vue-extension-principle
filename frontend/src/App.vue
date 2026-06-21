@@ -33,13 +33,13 @@
             <span slot="title">数据概览</span>
           </el-menu-item>
 
-          <el-submenu index="/system" v-if="hasPermission('role.view') || hasPermission('user.view')">
+          <el-submenu index="/system" v-if="$hasPermission('role.view') || $hasPermission('user.view')">
             <template slot="title">
               <i class="el-icon-s-custom"></i>
               <span>系统管理</span>
             </template>
-            <el-menu-item index="/roles" v-if="hasPermission('role.view')">角色管理</el-menu-item>
-            <el-menu-item index="/system/users" v-if="hasPermission('user.view')">用户管理</el-menu-item>
+            <el-menu-item index="/roles" v-permission="'role.view'">角色管理</el-menu-item>
+            <el-menu-item index="/system/users" v-permission="'user.view'">用户管理</el-menu-item>
           </el-submenu>
         </el-menu>
       </el-aside>
@@ -68,12 +68,7 @@ const guardTagTypes = {
 export default {
   name: 'App',
   computed: {
-    ...mapGetters(['isLogin', 'userInfo', 'permissions']),
-    hasPermission() {
-      return (permission) => {
-        return this.permissions.includes(permission) || this.permissions.includes('*')
-      }
-    },
+    ...mapGetters(['isLogin', 'userInfo']),
     currentGuard() {
       return this.userInfo?.guard_name || 'platform'
     },
