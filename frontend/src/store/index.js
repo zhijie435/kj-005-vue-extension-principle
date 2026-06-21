@@ -15,7 +15,16 @@ export default new Vuex.Store({
     isLogin: state => !!state.token,
     userInfo: state => state.userInfo,
     roles: state => state.roles,
-    permissions: state => state.permissions.map(p => p.name || p),
+    permissions: state => {
+      const perms = new Set()
+      state.permissions.forEach(p => perms.add(p.name || p))
+      state.roles.forEach(role => {
+        if (role.permissions) {
+          role.permissions.forEach(p => perms.add(p.name || p))
+        }
+      })
+      return Array.from(perms)
+    },
     currentGuard: state => {
       if (!state.userInfo) return null
       return state.userInfo.guard_name || 'platform'

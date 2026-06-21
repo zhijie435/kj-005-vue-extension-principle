@@ -1,5 +1,6 @@
 import Vue from 'vue'
 import VueRouter from 'vue-router'
+import store from '@/store'
 
 Vue.use(VueRouter)
 
@@ -53,9 +54,19 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !token) {
     next({ path: '/login', query: { redirect: to.fullPath } })
-  } else {
-    next()
+    return
   }
+
+  if (to.meta.permission && token) {
+    const permissions = store.getters.permissions
+    const hasPermission = permissions.includes(to.meta.permission) || permissions.includes('*')
+    if (!hasPermission) {
+      next({ path: '/404' })
+      return
+    }
+  }
+
+  next()
 })
 
 export default router
